@@ -5,8 +5,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-MASTER_FILE = os.path.join(SCRIPT_DIR, "Y202512260220-LIVE.bin")
-GEN_DIR     = os.path.join(SCRIPT_DIR, "generated")
+MASTER_FILE = os.path.join(SCRIPT_DIR, "..", "input", "Y202512260220-LIVE.bin")
+GEN_DIR     = os.path.join(SCRIPT_DIR, "..", "output")
 os.makedirs(GEN_DIR, exist_ok=True)
 
 def load_master():
@@ -21,7 +21,11 @@ def cc_ext(data):
 
 def gen(serial=None, base_serial=None, unit_digit='0',
         tx_wavelength=None, date_code=None,
-        vendor_lot=None, vendor_id=None):
+        vendor_lot=None, vendor_id=None,
+        vendor_pn=None, vendor_rev=None,
+        identifier=None, connector=None,
+        encoding=None, br_nominal=None,
+        diag_type=None, enhanced_options=None):
     data = bytearray(load_master())
     
     # Serial (bytes 68-80)
@@ -57,6 +61,42 @@ def gen(serial=None, base_serial=None, unit_digit='0',
         for i, ch in enumerate(s):
             data[112+i] = ord(ch)
     
+    # Vendor PN (bytes 40-55) - NEW
+    if vendor_pn and str(vendor_pn).strip():
+        s = str(vendor_pn).strip()[:16].ljust(16)
+        for i, ch in enumerate(s):
+            data[40+i] = ord(ch)
+    
+    # Vendor Rev (bytes 56-59) - NEW
+    if vendor_rev and str(vendor_rev).strip():
+        s = str(vendor_rev).strip()[:4].ljust(4)
+        for i, ch in enumerate(s):
+            data[56+i] = ord(ch)
+    
+    # Identifier (byte 0) - NEW
+    if identifier is not None:
+        data[0] = int(identifier) & 0xFF
+    
+    # Connector (byte 2) - NEW
+    if connector is not None:
+        data[2] = int(connector) & 0xFF
+    
+    # Encoding (byte 11) - NEW
+    if encoding is not None:
+        data[11] = int(encoding) & 0xFF
+    
+    # BR Nominal (byte 9) - NEW
+    if br_nominal is not None:
+        data[9] = int(br_nominal) // 100  # Convert to 100 MBd units
+    
+    # Diagnostic Type (byte 92) - NEW
+    if diag_type is not None:
+        data[92] = int(diag_type) & 0xFF
+    
+    # Enhanced Options (byte 93) - NEW
+    if enhanced_options is not None:
+        data[93] = int(enhanced_options) & 0xFF
+    
     # Recalculate checksums
     data[63] = cc_base(data)
     data[95] = cc_ext(data)
@@ -83,6 +123,14 @@ def mfields():
         "tx_wl": (m[60]<<8)|m[61],
         "cc_b": m[63],
         "cc_e": m[95],
+        "vendor_pn": bytes(m[40:56]).decode("ascii","replace").strip(),
+        "vendor_rev": bytes(m[56:60]).decode("ascii","replace").strip(),
+        "identifier": m[0],
+        "connector": m[2],
+        "encoding": m[11],
+        "br_nominal": m[9] * 100,  # in MBd units
+        "diag_type": m[92],
+        "enhanced_options": m[93],
     }
 
 def serve_html():
@@ -118,6 +166,10 @@ input{padding:6px 8px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;
 #gfList{max-height:200px;overflow:auto}
 #gfList div{padding:4px 8px;border-bottom:1px solid #21262d;cursor:pointer}
 #gfList div:hover{background:#21262d}
+.adv-toggle{cursor:pointer;color:#58a6ff;font-size:0.78rem;margin-top:10px;display:inline-block}
+.adv-toggle:hover{text-decoration:underline}
+.adv-section{display:none;margin-top:12px;padding:12px;background:#1c2128;border:1px solid #30363d;border-radius:6px}
+.adv-section.show{display:block}
 </style>
 </head>
 <body>
@@ -152,6 +204,62 @@ input{padding:6px 8px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;
       <label>Date Code (YYMMDD)</label>
       <input type="text" id="dc" placeholder="YYMMDD" maxlength="6">
     </div>
+    
+    <div class="adv-toggle" onclick="document.getElementById('adv').classList.toggle('show')">⚙️ Advanced Options (click to expand)</div>
+    <div id="adv" class="adv-section">
+      <div class="fg" style="margin-top:8px">
+        <div>
+          <label>Vendor PN (bytes 40-55)</label>
+          <input type="text" id="vpn" placeholder="VENDORPN" maxlength="16">
+        </div>
+        <div>
+          <label>Vendor Rev (bytes 56-59)</label>
+          <input type="text" id="vrev" placeholder="REV" maxlength="4">
+        </div>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <div>
+          <label>Identifier (byte 0, hex)</label>
+          <input type="text" id="idf" placeholder="0x03" maxlength="4">
+        </div>
+        <div>
+          <label>Connector (byte 2, hex)</label>
+          <input type="text" id="con" placeholder="0x07" maxlength="4">
+        </div>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <div>
+          <label>Encoding (byte 11, hex)</label>
+          <input type="text" id="enc" placeholder="0x06" maxlength="4">
+        </div>
+        <div>
+          <label>BR Nominal (byte 9, MBd)</label>
+          <input type="number" id="brn" placeholder="10000" min="0" max="65535">
+        </div>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <div>
+          <label>Diag Type (byte 92, hex)</label>
+          <input type="text" id="dty" placeholder="0x00" maxlength="4">
+        </div>
+        <div>
+          <label>Enhanced Opt (byte 93, hex)</label>
+          <input type="text" id="eno" placeholder="0x00" maxlength="4">
+        </div>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <div>
+          <label>Vendor Lot (bytes 96-111)</label>
+          <input type="text" id="vl" placeholder="VENDORLOT" maxlength="16">
+        </div>
+        <div>
+          <label>Vendor ID (bytes 112-127)</label>
+          <input type="text" id="vi" placeholder="VENDORID" maxlength="16">
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:0.68rem;color:#8b949e">Leave fields empty to keep master defaults</div>
+    </div>
+    
     <div style="margin-top:12px">
       <button class="btn" onclick="generate()">Generate & Download</button>
       <button class="btn" onclick="preview()" style="background:#30363d">Preview</button>
@@ -198,6 +306,37 @@ function generate() {
   const dc = document.getElementById('dc').value;
   if (dc) body.date_code = dc;
   
+  // Advanced fields - only send if not empty
+  const vpn = document.getElementById('vpn').value;
+  if (vpn) body.vendor_pn = vpn;
+  
+  const vrev = document.getElementById('vrev').value;
+  if (vrev) body.vendor_rev = vrev;
+  
+  const idf = document.getElementById('idf').value;
+  if (idf) body.identifier = parseInt(idf);
+  
+  const con = document.getElementById('con').value;
+  if (con) body.connector = parseInt(con);
+  
+  const enc = document.getElementById('enc').value;
+  if (enc) body.encoding = parseInt(enc);
+  
+  const brn = document.getElementById('brn').value;
+  if (brn) body.br_nominal = parseInt(brn);
+  
+  const dty = document.getElementById('dty').value;
+  if (dty) body.diag_type = parseInt(dty);
+  
+  const eno = document.getElementById('eno').value;
+  if (eno) body.enhanced_options = parseInt(eno);
+  
+  const vl = document.getElementById('vl').value;
+  if (vl) body.vendor_lot = vl;
+  
+  const vi = document.getElementById('vi').value;
+  if (vi) body.vendor_id = vi;
+  
   fetch('/api/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -230,6 +369,37 @@ function preview() {
   
   const dc = document.getElementById('dc').value;
   if (dc) body.date_code = dc;
+  
+  // Advanced fields - only send if not empty
+  const vpn = document.getElementById('vpn').value;
+  if (vpn) body.vendor_pn = vpn;
+  
+  const vrev = document.getElementById('vrev').value;
+  if (vrev) body.vendor_rev = vrev;
+  
+  const idf = document.getElementById('idf').value;
+  if (idf) body.identifier = parseInt(idf);
+  
+  const con = document.getElementById('con').value;
+  if (con) body.connector = parseInt(con);
+  
+  const enc = document.getElementById('enc').value;
+  if (enc) body.encoding = parseInt(enc);
+  
+  const brn = document.getElementById('brn').value;
+  if (brn) body.br_nominal = parseInt(brn);
+  
+  const dty = document.getElementById('dty').value;
+  if (dty) body.diag_type = parseInt(dty);
+  
+  const eno = document.getElementById('eno').value;
+  if (eno) body.enhanced_options = parseInt(eno);
+  
+  const vl = document.getElementById('vl').value;
+  if (vl) body.vendor_lot = vl;
+  
+  const vi = document.getElementById('vi').value;
+  if (vi) body.vendor_id = vi;
   
   fetch('/api/generate', {
     method: 'POST',
@@ -333,7 +503,15 @@ class Handler(BaseHTTPRequestHandler):
                     tx_wavelength=body.get('tx_wavelength'),
                     date_code=body.get('date_code'),
                     vendor_lot=body.get('vendor_lot'),
-                    vendor_id=body.get('vendor_id')
+                    vendor_id=body.get('vendor_id'),
+                    vendor_pn=body.get('vendor_pn'),
+                    vendor_rev=body.get('vendor_rev'),
+                    identifier=body.get('identifier'),
+                    connector=body.get('connector'),
+                    encoding=body.get('encoding'),
+                    br_nominal=body.get('br_nominal'),
+                    diag_type=body.get('diag_type'),
+                    enhanced_options=body.get('enhanced_options'),
                 )
                 
                 # Auto-save
