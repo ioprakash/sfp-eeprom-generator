@@ -210,11 +210,11 @@ input{padding:6px 8px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;
       <div class="fg" style="margin-top:8px">
         <div>
           <label>Vendor PN (bytes 40-55)</label>
-          <input type="text" id="vpn" placeholder="VENDORPN" maxlength="16">
+          <input type="text" id="vpn" placeholder="SFP-10G-B23L-20D" maxlength="16">
         </div>
         <div>
           <label>Vendor Rev (bytes 56-59)</label>
-          <input type="text" id="vrev" placeholder="REV" maxlength="4">
+          <input type="text" id="vrev" placeholder="A" maxlength="4">
         </div>
       </div>
       <div class="fg" style="margin-top:10px">
@@ -240,21 +240,21 @@ input{padding:6px 8px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;
       <div class="fg" style="margin-top:10px">
         <div>
           <label>Diag Type (byte 92, hex)</label>
-          <input type="text" id="dty" placeholder="0x00" maxlength="4">
+          <input type="text" id="dty" placeholder="0x68" maxlength="4">
         </div>
         <div>
           <label>Enhanced Opt (byte 93, hex)</label>
-          <input type="text" id="eno" placeholder="0x00" maxlength="4">
+          <input type="text" id="eno" placeholder="0xF0" maxlength="4">
         </div>
       </div>
       <div class="fg" style="margin-top:10px">
         <div>
           <label>Vendor Lot (bytes 96-111)</label>
-          <input type="text" id="vl" placeholder="VENDORLOT" maxlength="16">
+          <input type="text" id="vl" placeholder="ALCATEL 3HE04823" maxlength="16">
         </div>
         <div>
           <label>Vendor ID (bytes 112-127)</label>
-          <input type="text" id="vi" placeholder="VENDORID" maxlength="16">
+          <input type="text" id="vi" placeholder="AA01 VAUIAS0AAA" maxlength="16">
         </div>
       </div>
       <div style="margin-top:8px;font-size:0.68rem;color:#8b949e">Leave fields empty to keep master defaults</div>
